@@ -1,4 +1,5 @@
 from math import sin, pi
+from functools import reduce
 
 
 class Note(object):

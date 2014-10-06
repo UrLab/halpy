@@ -4,9 +4,10 @@
 import socket
 import glob
 from os import path
+from sys import version_info
 
-import generators
-import log
+from .generators import sinusoid
+from .log import getLogger
 
 
 class HAL(object):
@@ -40,7 +41,7 @@ class HAL(object):
 
     def getLogger(self, *args, **kwargs):
         """Compat with old-style API"""
-        return log.getLogger(*args, **kwargs)
+        return getLogger(*args, **kwargs)
 
     def events(self):
         """
@@ -63,7 +64,7 @@ class HAL(object):
 
     def sinusoid(self, *args, **kwargs):
         """Compat with old-style API"""
-        return generators.sinusoid(*args, **kwargs)
+        return sinusoid(*args, **kwargs)
 
     def sensor(self, name):
         """Return named sensor value"""
@@ -106,7 +107,11 @@ class HAL(object):
                 frames = ''.join(chr(int(255 * f)) for f in frames)
             elif isinstance(frames[0], str):
                 frames = ''.join(frames)
-        assert type(frames) in (str, unicode, bytes)
+        # Py2/Py3 differences
+        if version_info[0] == 2:
+            assert type(frames) in (str, unicode, bytes)  # pragma: no flakes
+        else:
+            assert type(frames) in (str, bytes)
         self.write("animations/" + anim + "/frames", frames)
 
     def fps(self, anim, fps=None):
