@@ -4,9 +4,9 @@
 import socket
 import glob
 from os import path
-import logging
-from sys import stdout, argv
+
 import generators
+import log
 
 
 class HAL(object):
@@ -38,21 +38,9 @@ class HAL(object):
             return float(str_value)
         return 0
 
-    def getLogger(self, name=''):
-        """Return a logger suitable for HAL scripts"""
-        progname = path.basename(argv[0]).replace('.py', '')
-        if name:
-            progname += '.' + name
-        log = logging.getLogger(progname)
-        log.setLevel(logging.DEBUG)
-        ch = logging.StreamHandler(stdout)
-        ch.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        ch.setFormatter(formatter)
-        log.addHandler(ch)
-        return log
+    def getLogger(self, *args, **kwargs):
+        """Compat with old-style API"""
+        return log.getLogger(*args, **kwargs)
 
     def events(self):
         """
