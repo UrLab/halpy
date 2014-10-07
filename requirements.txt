@@ -2,3 +2,4 @@ pytest
 pytest-flakes
 pytest-cov
 pytest-pep8
+sphinx
