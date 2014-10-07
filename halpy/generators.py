@@ -1,13 +1,24 @@
+"""Helpers for commonly used Animation frames"""
+
+
 from math import sin, pi
-from functools import reduce
+from functools import reduce  # Py3 compat
 
 
 class Note(object):
+    """A helper class for buzzers"""
+
     def __init__(self, freq, duration=1):
+        """Create a new note of given frequency and duration (in measures)"""
         self.freq, self.duration = freq, duration
 
-    def to_frames(self, base_duration=4):
-        d = int(self.duration*base_duration)
+    def to_frames(self, bpm=4):
+        """
+        Return an object suitable for Animation upload, at given bpm. Try to
+        let a small silence at the end, to avoid legato effect.
+        Example: Note(440, 1).to_frames(4) # => [44, 44, 44, 0]
+        """
+        d = int(self.duration*bpm)
         f = int(round(float(self.freq)/10))
         if d > 1:
             return [f]*(d-1) + [0]
@@ -15,14 +26,18 @@ class Note(object):
 
 
 def Silence(duration=1):
+    """A silent note"""
     return Note(0, duration)
 
 
 class Partition(object):
+    """A Note container"""
     def __init__(self, *notes):
+        """Return a new partition with given notes"""
         self.notes = notes
 
     def to_frames(self, base_duration=4):
+        """See Note.to_frames"""
         return reduce(
             lambda res, n: res + n.to_frames(base_duration), self.notes, []
         )

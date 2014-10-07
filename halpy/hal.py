@@ -8,6 +8,7 @@ from sys import version_info
 
 from .generators import sinusoid
 from .log import getLogger
+from .simple_inotify import follow
 
 
 class HAL(object):
@@ -55,6 +56,12 @@ class HAL(object):
             line = line.strip()
             trig_name, state = line.split(':')
             yield trig_name, (state == '1')
+
+    def changes(self):
+        """
+        Return an iterator on all WRITE to HAL parameters.
+        """
+        return follow(self.halfs_root)
 
     def waitFor(self, trigger, on_activation=True):
         """Return when trigger becomes (in)active"""

@@ -6,7 +6,7 @@ def test_note_defaults():
     assert n.freq == 440
     assert n.duration == 1
     assert n.to_frames() == [44, 44, 44, 0]
-    assert n.to_frames(base_duration=1) == [44]
+    assert n.to_frames(bpm=1) == [44]
 
 
 def test_partition_defaults():
