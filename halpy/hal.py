@@ -12,6 +12,8 @@ from .simple_inotify import follow
 
 
 class HAL(object):
+    """Main HAL class."""
+
     def __init__(self, halfs_root):
         self.halfs_root = halfs_root
 
@@ -44,6 +46,30 @@ class HAL(object):
         """Compat with old-style API"""
         return getLogger(*args, **kwargs)
 
+    def changes(self):
+        """
+        Return an iterator on all WRITE to HAL parameters.
+        """
+        return follow(self.halfs_root)
+
+    def sinusoid(self, *args, **kwargs):
+        """Compat with old-style API. See halpy.generators.sinusoid"""
+        return sinusoid(*args, **kwargs)
+
+    # Sensors
+    def sensor(self, name):
+        """Return named sensor value"""
+        return self.get("sensors/"+name)
+
+    def sensors(self, ):
+        """Return all sensors values in a dict"""
+        sensors = {}
+        for sensor in glob.glob(path.join(self.halfs_root, "sensors", "*")):
+            sensors[path.basename(sensor)] = self.get(sensor)
+
+        return sensors
+
+    # Triggers
     def events(self):
         """
         Subsribe to hal events, and return an iterator (name, state)
@@ -57,11 +83,9 @@ class HAL(object):
             trig_name, state = line.split(':')
             yield trig_name, (state == '1')
 
-    def changes(self):
-        """
-        Return an iterator on all WRITE to HAL parameters.
-        """
-        return follow(self.halfs_root)
+    def trig(self, trigger):
+        """Return true if trigger is active"""
+        return self.get("triggers/" + trigger) == 1
 
     def waitFor(self, trigger, on_activation=True):
         """Return when trigger becomes (in)active"""
@@ -69,26 +93,7 @@ class HAL(object):
             if trig_name == trigger and trig_active == on_activation:
                 break
 
-    def sinusoid(self, *args, **kwargs):
-        """Compat with old-style API"""
-        return sinusoid(*args, **kwargs)
-
-    def sensor(self, name):
-        """Return named sensor value"""
-        return self.get("sensors/"+name)
-
-    def sensors(self, ):
-        """Return all sensors values in a dict"""
-        sensors = {}
-        for sensor in glob.glob(path.join(self.halfs_root, "sensors", "*")):
-            sensors[path.basename(sensor)] = self.get(sensor)
-
-        return sensors
-
-    def trig(self, trigger):
-        """Return true if trigger is active"""
-        return self.get("triggers/" + trigger) == 1
-
+    # Switchs
     def on(self, switch):
         """Put switch on"""
         self.write("switchs/" + switch, 1)
@@ -97,6 +102,7 @@ class HAL(object):
         """Put switch off"""
         self.write("switchs/" + switch, 0)
 
+    # Animations
     def upload(self, anim, frames):
         """
         Upload frames to anim.
@@ -132,6 +138,10 @@ class HAL(object):
             assert 4 <= fps <= 1000
             self.write("animations/" + anim + "/fps", int(fps))
 
+    def is_playing(self, anim):
+        """Return true if anim is currently playing"""
+        return self.get("animations/" + anim + "/play") == 1
+
     def play(self, anim):
         """Start playing anim"""
         self.write("animations/" + anim + "/play", 1)
@@ -140,10 +150,14 @@ class HAL(object):
         """Stop playing anim"""
         self.write("animations/" + anim + "/play", 0)
 
+    def is_looping(self, anim):
+        """Return true if anim is currently in loop mode"""
+        return self.get("animations/" + anim + "/loop") == 1
+
     def loop(self, anim):
         """Put anim in loop mode"""
         self.write("animations/" + anim + "/loop", 1)
 
     def one_shot(self, anim):
-        """Put anim in one_shot mode"""
+        """Put anim in one_shot mode (not playing continuously in loop)"""
         self.write("animations/" + anim + "/loop", 0)

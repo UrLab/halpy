@@ -9,6 +9,7 @@ IN_CLOSE_WRITE = 0x08  # Better: parse sys/inotify.h
 
 
 class SimpleINotifyError(Exception):
+    """Type of exception raised by follow"""
     pass
 
 
@@ -16,6 +17,13 @@ struct_inotify_event = namedtuple('inotify_event', 'wd mask cookie len')
 
 
 def follow(directory):
+    """
+    Watch recursively a directory and all its subtree. Return an iterator on
+    each write modifications in this subtree.
+
+    >>> for file_written in follow("/a/path"):
+    >>>    print file_written, "has been modified"
+    """
     followed = {}
     fd = libc.inotify_init()
     if fd < 0:
@@ -38,3 +46,5 @@ def follow(directory):
             if event.len > 0:
                 os.read(fd, event.len)
             yield followed[event.wd]
+
+    os.close(fd)
