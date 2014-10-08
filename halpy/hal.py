@@ -94,6 +94,10 @@ class HAL(object):
                 break
 
     # Switchs
+    def is_on(self, switch):
+        """Return true if given switch is on"""
+        return self.get("switchs/"+switch) == 1
+
     def on(self, switch):
         """Put switch on"""
         self.write("switchs/" + switch, 1)
