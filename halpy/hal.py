@@ -3,7 +3,7 @@
 
 import socket
 import glob
-from os import path
+from os import path, listdir
 from sys import version_info
 
 from .generators import sinusoid
@@ -107,6 +107,10 @@ class HAL(object):
         self.write("switchs/" + switch, 0)
 
     # Animations
+    def animations(self):
+        """ Returns the string list of animations names """
+        return [anim for anim in os.listdir() if os.path.isdir(anim)]
+
     def upload(self, anim, frames):
         """
         Upload frames to anim.
