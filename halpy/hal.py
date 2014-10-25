@@ -109,7 +109,7 @@ class HAL(object):
     # Animations
     def animations(self):
         """ Returns the string list of animations names """
-        return [anim for anim in os.listdir() if os.path.isdir(anim)]
+        return [anim for anim in listdir() if path.isdir(anim)]
 
     def upload(self, anim, frames):
         """
