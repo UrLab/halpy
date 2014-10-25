@@ -2,8 +2,7 @@
 # Florentin Hennecker, Nikita Marchant, Titouan Christophe
 
 import socket
-import glob
-from os import path
+from os import path, listdir
 from sys import version_info
 
 from .generators import sinusoid
@@ -57,19 +56,25 @@ class HAL(object):
         return sinusoid(*args, **kwargs)
 
     # Sensors
+    @property
+    def all_sensors(self):
+        """ Returns the string list of animations names """
+        return listdir(path.join(self.halfs_root, "sensors"))
+
     def sensor(self, name):
         """Return named sensor value"""
-        return self.get("sensors/"+name)
+        return self.get(path.join("sensors", name))
 
     def sensors(self, ):
         """Return all sensors values in a dict"""
-        sensors = {}
-        for sensor in glob.glob(path.join(self.halfs_root, "sensors", "*")):
-            sensors[path.basename(sensor)] = self.get(sensor)
-
-        return sensors
+        return {name: self.sensor(name) for name in self.all_sensors}
 
     # Triggers
+    @property
+    def all_triggers(self):
+        """ Returns the string list of animations names """
+        return listdir(path.join(self.halfs_root, "triggers"))
+
     def events(self):
         """
         Subsribe to hal events, and return an iterator (name, state)
@@ -94,19 +99,29 @@ class HAL(object):
                 break
 
     # Switchs
+    @property
+    def all_switchs(self):
+        """ Returns the string list of animations names """
+        return listdir(path.join(self.halfs_root, "switchs"))
+
     def is_on(self, switch):
         """Return true if given switch is on"""
-        return self.get("switchs/"+switch) == 1
+        return self.get(path.join("switchs", switch)) == 1
 
     def on(self, switch):
         """Put switch on"""
-        self.write("switchs/" + switch, 1)
+        self.write(path.join("switchs", switch), 1)
 
     def off(self, switch):
         """Put switch off"""
-        self.write("switchs/" + switch, 0)
+        self.write(path.join("switchs", switch), 0)
 
     # Animations
+    @property
+    def all_animations(self):
+        """ Returns the string list of animations names """
+        return listdir(path.join(self.halfs_root, "animations"))
+
     def upload(self, anim, frames):
         """
         Upload frames to anim.
@@ -129,7 +144,7 @@ class HAL(object):
             assert type(frames) in (str, unicode, bytes)  # pragma: no flakes
         else:
             assert type(frames) in (str, bytes)
-        self.write("animations/" + anim + "/frames", frames)
+        self.write(path.join("animations", anim, "frames"), frames)
 
     def fps(self, anim, fps=None):
         """
@@ -137,31 +152,31 @@ class HAL(object):
         If fps is none, only return its actual value
         """
         if fps is None:
-            return self.get("animations/" + anim + "/fps")
+            return self.get(path.join("animations", anim, "fps"))
         else:
             assert 4 <= fps <= 1000
-            self.write("animations/" + anim + "/fps", int(fps))
+            self.write(path.join("animations", anim, "fps"), int(fps))
 
     def is_playing(self, anim):
         """Return true if anim is currently playing"""
-        return self.get("animations/" + anim + "/play") == 1
+        return self.get(path.join("animations", anim, "play")) == 1
 
     def play(self, anim):
         """Start playing anim"""
-        self.write("animations/" + anim + "/play", 1)
+        self.write(path.join("animations", anim, "play"), 1)
 
     def stop(self, anim):
         """Stop playing anim"""
-        self.write("animations/" + anim + "/play", 0)
+        self.write(path.join("animations", anim, "play"), 0)
 
     def is_looping(self, anim):
         """Return true if anim is currently in loop mode"""
-        return self.get("animations/" + anim + "/loop") == 1
+        return self.get(path.join("animations", anim, "loop")) == 1
 
     def loop(self, anim):
         """Put anim in loop mode"""
-        self.write("animations/" + anim + "/loop", 1)
+        self.write(path.join("animations", anim, "loop"), 1)
 
     def one_shot(self, anim):
         """Put anim in one_shot mode (not playing continuously in loop)"""
-        self.write("animations/" + anim + "/loop", 0)
+        self.write(path.join("animations", anim, "loop"), 0)
