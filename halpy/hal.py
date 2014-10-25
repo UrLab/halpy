@@ -58,7 +58,7 @@ class HAL(object):
     # Sensors
     @property
     def all_sensors(self):
-        """ Returns the string list of animations names """
+        """List of all sensor names"""
         return listdir(path.join(self.halfs_root, "sensors"))
 
     def sensor(self, name):
@@ -72,7 +72,7 @@ class HAL(object):
     # Triggers
     @property
     def all_triggers(self):
-        """ Returns the string list of animations names """
+        """List of all triggers names"""
         return listdir(path.join(self.halfs_root, "triggers"))
 
     def events(self):
@@ -101,7 +101,7 @@ class HAL(object):
     # Switchs
     @property
     def all_switchs(self):
-        """ Returns the string list of animations names """
+        """List of all switchs names"""
         return listdir(path.join(self.halfs_root, "switchs"))
 
     def is_on(self, switch):
@@ -119,7 +119,7 @@ class HAL(object):
     # Animations
     @property
     def all_animations(self):
-        """ Returns the string list of animations names """
+        """List of all animations names"""
         return listdir(path.join(self.halfs_root, "animations"))
 
     def upload(self, anim, frames):
