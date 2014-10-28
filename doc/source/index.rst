@@ -6,11 +6,12 @@
 Welcome to HALpy's documentation!
 =================================
 
+HALpy is a high-level python API for the HAL driver.
+
 Contents:
 
 .. toctree::
    :maxdepth: 2
-
 
 
 Indices and tables
