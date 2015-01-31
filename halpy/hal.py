@@ -82,11 +82,14 @@ class HAL(object):
         """
         events = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         events.connect(self.expand_path("events"))
+        buf = ""
         while True:
-            line = events.recv(16)
-            line = line.strip()
-            trig_name, state = line.split(':')
-            yield trig_name, (state == '1')
+            buf += events.recv(16)
+            lines = buf.split('\n')
+            buf = lines.pop()
+            for line in lines:
+                trig_name, state = line.split(':')
+                yield trig_name, (state == '1')
 
     def trig(self, trigger):
         """Return true if trigger is active"""
