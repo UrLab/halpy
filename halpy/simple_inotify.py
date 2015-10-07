@@ -9,42 +9,33 @@ IN_CLOSE_WRITE = 0x08  # Better: parse sys/inotify.h
 
 
 class SimpleINotifyError(Exception):
-    """Type of exception raised by follow"""
     pass
 
 
 struct_inotify_event = namedtuple('inotify_event', 'wd mask cookie len')
 
 
-def follow(directory):
-    """
-    Watch recursively a directory and all its subtree. Return an iterator on
-    each write modifications in this subtree.
+class InotifyWatch(object):
+    def __init__(self, directory):
+        self.followed = {}
+        self.fd = libc.inotify_init()
+        if self.fd < 0:
+            raise SimpleINotifyError("Unable to initialize inotify")
 
-    >>> for file_written in follow("/a/path"):
-    >>>    print file_written, "has been modified"
-    """
-    followed = {}
-    fd = libc.inotify_init()
-    if fd < 0:
-        raise SimpleINotifyError("Unable to initialize inotify")
+        for root, dirs, files in os.walk(directory):
+            for f in files:
+                full_path = os.path.join(root, f)
 
-    for root, dirs, files in os.walk(directory):
-        for f in files:
-            full_path = os.path.join(root, f)
+                r = libc.inotify_add_watch(self.fd, full_path, IN_CLOSE_WRITE)
+                if r < 0:
+                    raise SimpleINotifyError("Unable to follow " + full_path)
+                self.followed[r] = full_path
 
-            r = libc.inotify_add_watch(fd, full_path, IN_CLOSE_WRITE)
-            if r < 0:
-                raise SimpleINotifyError("Unable to follow " + full_path)
-            followed[r] = full_path
-
-    while True:
-        buf = os.read(fd, 16)
+    def get(self):
+        buf = os.read(self.fd, 16)
         if len(buf) == 16:
             event = struct_inotify_event._make(unpack('iIII', buf))
             # Read name length bytes
             if event.len > 0:
-                os.read(fd, event.len)
-            yield followed[event.wd]
-
-    os.close(fd)
+                os.read(self.fd, event.len)
+            return self.followed[event.wd]

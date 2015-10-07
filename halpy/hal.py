@@ -1,185 +1,188 @@
-# Copyright UrLab 2014
+# Copyright UrLab 2014-2015
 # Florentin Hennecker, Nikita Marchant, Titouan Christophe
 
-import socket
 from os import path, listdir
-from sys import version_info
+from simple_inotify import InotifyWatch
+from itertools import chain
+import select
+import socket
 
-from .generators import sinusoid
-from .log import getLogger
-from .simple_inotify import follow
+
+class Resource(object):
+    """
+    Base class for all HAL resources (switchs, anims, triggers, sensors)
+    """
+    hal_type = ''
+
+    def __init__(self, hal, name):
+        if not self.hal_type:
+            raise RuntimeError("Cannot instanciate abstract resource !")
+        self.hal = hal
+        self.name = name
+
+    def read(self, *path):
+        full_path = (self.hal_type, self.name) + path
+        return self.hal.read(*full_path)
+
+    def write(self, value, *path):
+        full_path = (self.hal_type, self.name) + path
+        return self.hal.write(value, *full_path)
+
+
+class Animation(Resource):
+    hal_type = "animations"
+
+    @property
+    def fps(self):
+        return self.read("fps")
+
+    @fps.setter
+    def fps(self, value):
+        value = int(value)
+        assert 4 <= value <= 1024
+        return self.write(value, "fps")
+
+    @property
+    def playing(self):
+        return self.read("play")
+
+    @playing.setter
+    def playing(self, value):
+        self.write(1 if value else 0, "play")
+
+    @property
+    def looping(self):
+        return self.read("loop")
+
+    @looping.setter
+    def looping(self, value):
+        self.write(1 if value else 0, "loop")
+
+
+class Switch(Resource):
+    hal_type = 'switchs'
+
+    @property
+    def on(self):
+        return self.read().strip() == "1"
+
+    @on.setter
+    def on(self, value):
+        self.write(1 if value else 0)
+
+
+class Trigger(Resource):
+    hal_type = 'triggers'
+
+    @property
+    def is_active(self):
+        return self.read().strip() == "1"
+
+
+class Sensor(Resource):
+    hal_type = 'sensors'
+
+    @property
+    def value(self):
+        return float(self.read())
 
 
 class HAL(object):
     """Main HAL class."""
 
+    resource_mapping = {
+        c.hal_type: c for c in (Animation, Switch, Trigger, Sensor)}
+
     def __init__(self, halfs_root):
         self.halfs_root = halfs_root
+        for name, klass in self.resource_mapping.items():
+            entries = listdir(path.join(self.halfs_root, name))
+            setattr(self, name, {e: klass(self, e) for e in entries})
 
-    def expand_path(self, filename):
-        if filename.startswith(self.halfs_root):
-            return filename
-        return path.join(self.halfs_root, filename)
+    def expand_path(self, *filepath):
+        return path.join(self.halfs_root, *filepath)
 
-    def read(self, filename):
+    def read(self, *filepath):
         """Returns a string with the content of the file given in parameter"""
-        return open(self.expand_path(filename), 'r').read().strip("\0").strip()
+        return open(self.expand_path(*filepath), 'r').read().strip()
 
-    def write(self, filename, value):
+    def write(self, value, *filepath):
         """Casts value to str and writes it to the file given in parameter"""
-        open(self.expand_path(filename), 'w').write(str(value))
+        open(self.expand_path(*filepath), 'w').write(str(value))
 
-    def get(self, filename):
-        """
-        Returns float or int value depending on the type of the value in the
-        file
-        """
-        str_value = self.read(filename)
-        if str_value.find(".") == -1:  # value is an integer
-            return int(str_value)
-        else:  # value is a float
-            return float(str_value)
-        return 0
+    def map_path(self, filepath):
+        """Return the resource associated to given filepath"""
+        parts = path.split(filepath.replace(self.halfs_root, ''))
+        while '/' in parts[0][1:]:
+            parts = path.split(parts[0])
+        parts = map(lambda x: x.strip('/'), parts)
+        return self.resource_mapping[parts[0]](self, parts[1])
 
-    def getLogger(self, *args, **kwargs):
-        """Compat with old-style API"""
-        return getLogger(*args, **kwargs)
 
-    def changes(self):
-        """
-        Return an iterator on all WRITE to HAL parameters.
-        """
-        return follow(self.halfs_root)
+class EventHAL(HAL):
+    """A HAL object with eventloop capabilities"""
 
-    def sinusoid(self, *args, **kwargs):
-        """Compat with old-style API. See halpy.generators.sinusoid"""
-        return sinusoid(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(EventHAL, self).__init__(*args, **kwargs)
+        self.running = False
+        self.trigger_events = {}
+        self.change_events = {}
 
-    # Sensors
-    @property
-    def all_sensors(self):
-        """List of all sensor names"""
-        return listdir(path.join(self.halfs_root, "sensors"))
+    def run(self, poll_timeout_ms=200):
+        self.running = True
+        poll = select.poll()
 
-    def sensor(self, name):
-        """Return named sensor value"""
-        return self.get(path.join("sensors", name))
+        events_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        events_sock.connect(path.join(self.halfs_root, "events"))
+        poll.register(events_sock, select.POLLIN)
 
-    def sensors(self, ):
-        """Return all sensors values in a dict"""
-        return {name: self.sensor(name) for name in self.all_sensors}
+        changes_watch = InotifyWatch(self.halfs_root)
+        poll.register(changes_watch.fd, select.POLLIN)
 
-    # Triggers
-    @property
-    def all_triggers(self):
-        """List of all triggers names"""
-        return listdir(path.join(self.halfs_root, "triggers"))
+        while self.running:
+            events = poll.poll(poll_timeout_ms)
+            for fd, flags in events:
+                if fd == changes_watch.fd:
+                    self._change_callback(changes_watch.get())
+                elif fd == events_sock:
+                    line = ''
+                    while not line.endswith('\n'):
+                        line += events_sock.read(1)
+                    self._trigger_callback(line.strip())
 
-    def events(self):
-        """
-        Subsribe to hal events, and return an iterator (name, state)
-        example: for trigger_name, trigger_active in events(): ...
-        """
-        events = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        events.connect(self.expand_path("events"))
-        buf = ""
-        while True:
-            buf += events.recv(16)
-            lines = buf.split('\n')
-            buf = lines.pop()
-            for line in lines:
-                trig_name, state = line.split(':')
-                yield trig_name, (state == '1')
+    def _change_callback(self, change_path):
+        resource = self.map_path(change_path)
+        key = (type(resource), resource.name)
+        handlers = self.change_events.get(key, tuple())
+        for handler in handlers:
+            handler(resource)
 
-    def trig(self, trigger):
-        """Return true if trigger is active"""
-        return self.get("triggers/" + trigger) == 1
+    def _trigger_callback(self, sock_line):
+        name, state = sock_line.split(':')
+        state = state == "1"
+        handlers = chain(
+            self.trigger_events.get((name, state), tuple()),
+            self.trigger_events.get((name, None), tuple()))
+        for handler in handlers:
+            handler(state)
 
-    def waitFor(self, trigger, on_activation=True):
-        """Return when trigger becomes (in)active"""
-        for trig_name, trig_active in self.events():
-            if trig_name == trigger and trig_active == on_activation:
-                break
+    def on_trigger(self, trig_name, trig_value=None):
+        def wrapper(func):
+            k = (trig_name, trig_value)
+            handlers = self.trigger_events.get(k, tuple())
 
-    # Switchs
-    @property
-    def all_switchs(self):
-        """List of all switchs names"""
-        return listdir(path.join(self.halfs_root, "switchs"))
+            def inner(actual_value):
+                if trig_value is None or trig_value == actual_value:
+                    func(actual_value)
+            self.trigger_events[k] = handlers + (inner,)
+        return wrapper
 
-    def is_on(self, switch):
-        """Return true if given switch is on"""
-        return self.get(path.join("switchs", switch)) == 1
+    def on_change(self, hal_type, name):
+        def wrapper(func):
+            k = (hal_type, name)
+            handlers = self.change_events.get(k, tuple())
 
-    def on(self, switch):
-        """Put switch on"""
-        self.write(path.join("switchs", switch), 1)
-
-    def off(self, switch):
-        """Put switch off"""
-        self.write(path.join("switchs", switch), 0)
-
-    # Animations
-    @property
-    def all_animations(self):
-        """List of all animations names"""
-        return listdir(path.join(self.halfs_root, "animations"))
-
-    def upload(self, anim, frames):
-        """
-        Upload frames to anim.
-        Frames could be given in the following formats:
-        * [float (0..1), ...]
-        * [int (0..255), ...]
-        * [chr, ...]
-        * str
-        """
-        assert 0 < len(frames) < 256
-        if isinstance(frames, list):
-            if isinstance(frames[0], int):
-                frames = ''.join(map(chr, frames))
-            elif isinstance(frames[0], float):
-                frames = ''.join(chr(int(255 * f)) for f in frames)
-            elif isinstance(frames[0], str):
-                frames = ''.join(frames)
-        # Py2/Py3 differences
-        if version_info[0] == 2:
-            assert type(frames) in (str, unicode, bytes)  # pragma: no flakes
-        else:
-            assert type(frames) in (str, bytes)
-        self.write(path.join("animations", anim, "frames"), frames)
-
-    def fps(self, anim, fps=None):
-        """
-        Set anim speed in frames per second.
-        If fps is none, only return its actual value
-        """
-        if fps is None:
-            return self.get(path.join("animations", anim, "fps"))
-        else:
-            assert 4 <= fps <= 1000
-            self.write(path.join("animations", anim, "fps"), int(fps))
-
-    def is_playing(self, anim):
-        """Return true if anim is currently playing"""
-        return self.get(path.join("animations", anim, "play")) == 1
-
-    def play(self, anim):
-        """Start playing anim"""
-        self.write(path.join("animations", anim, "play"), 1)
-
-    def stop(self, anim):
-        """Stop playing anim"""
-        self.write(path.join("animations", anim, "play"), 0)
-
-    def is_looping(self, anim):
-        """Return true if anim is currently in loop mode"""
-        return self.get(path.join("animations", anim, "loop")) == 1
-
-    def loop(self, anim):
-        """Put anim in loop mode"""
-        self.write(path.join("animations", anim, "loop"), 1)
-
-    def one_shot(self, anim):
-        """Put anim in one_shot mode (not playing continuously in loop)"""
-        self.write(path.join("animations", anim, "loop"), 0)
+            def inner(resource):
+                func(resource)
+            self.change_events[k] = handlers + (inner,)
+        return wrapper
