@@ -26,7 +26,10 @@ class InotifyWatch(object):
             for f in files:
                 full_path = os.path.join(root, f)
 
-                r = libc.inotify_add_watch(self.fd, full_path, IN_CLOSE_WRITE)
+                r = libc.inotify_add_watch(
+                    self.fd,
+                    C.c_char_p(bytes(full_path.encode())),
+                    C.c_int(IN_CLOSE_WRITE))
                 if r < 0:
                     raise SimpleINotifyError("Unable to follow " + full_path)
                 self.followed[r] = full_path

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='halpy',
-    version='0.1',
+    version='0.2',
     description="""
         halpy is a high-level Python API for the HAL project. HAL is an
         arduino-based human-hackerspace interface, meant to be reusable and

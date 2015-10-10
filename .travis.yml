@@ -4,8 +4,6 @@ script:
   - py.test
   - "cd doc/ && make html"
 python:
-  - "2.7"
-  - "3.3"
   - "3.4"
 notifications:
   irc:

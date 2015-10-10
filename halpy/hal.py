@@ -2,10 +2,15 @@
 # Florentin Hennecker, Nikita Marchant, Titouan Christophe
 
 from os import path, listdir
-from simple_inotify import InotifyWatch
-from itertools import chain
-import select
+from .simple_inotify import InotifyWatch
 import socket
+import asyncio
+
+
+class AttrDict(dict):
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
 
 
 class Resource(object):
@@ -27,6 +32,11 @@ class Resource(object):
     def write(self, value, *path):
         full_path = (self.hal_type, self.name) + path
         return self.hal.write(value, *full_path)
+
+    def on_change(self, func):
+        pattern = type(self), self.name
+        installed = self.hal.change_events.get(pattern, [])
+        self.hal.change_events[pattern] = installed + [func]
 
 
 class Animation(Resource):
@@ -96,8 +106,15 @@ class HAL(object):
     def __init__(self, halfs_root):
         self.halfs_root = halfs_root
         for name, klass in self.resource_mapping.items():
-            entries = listdir(path.join(self.halfs_root, name))
-            setattr(self, name, {e: klass(self, e) for e in entries})
+            try:
+                entries = listdir(path.join(self.halfs_root, name))
+                resources = AttrDict({e: klass(self, e) for e in entries})
+                setattr(self, name, resources)
+            except FileNotFoundError:
+                continue
+        self.running = False
+        self.trigger_events = {}
+        self.change_events = {}
 
     def expand_path(self, *filepath):
         return path.join(self.halfs_root, *filepath)
@@ -115,74 +132,52 @@ class HAL(object):
         parts = path.split(filepath.replace(self.halfs_root, ''))
         while '/' in parts[0][1:]:
             parts = path.split(parts[0])
-        parts = map(lambda x: x.strip('/'), parts)
+        parts = [x.strip('/') for x in parts]
         return self.resource_mapping[parts[0]](self, parts[1])
 
+    def run(self):
+        loop = asyncio.get_event_loop()
 
-class EventHAL(HAL):
-    """A HAL object with eventloop capabilities"""
-
-    def __init__(self, *args, **kwargs):
-        super(EventHAL, self).__init__(*args, **kwargs)
-        self.running = False
-        self.trigger_events = {}
-        self.change_events = {}
-
-    def run(self, poll_timeout_ms=200):
-        self.running = True
-        poll = select.poll()
-
+        # Socket for triggers
         events_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         events_sock.connect(path.join(self.halfs_root, "events"))
-        poll.register(events_sock, select.POLLIN)
 
-        changes_watch = InotifyWatch(self.halfs_root)
-        poll.register(changes_watch.fd, select.POLLIN)
+        def dispatch_events():
+            text = ''
+            while not text.endswith('\n'):
+                text += events_sock.recv(1).decode()
 
-        while self.running:
-            events = poll.poll(poll_timeout_ms)
-            for fd, flags in events:
-                if fd == changes_watch.fd:
-                    self._change_callback(changes_watch.get())
-                elif fd == events_sock:
-                    line = ''
-                    while not line.endswith('\n'):
-                        line += events_sock.read(1)
-                    self._trigger_callback(line.strip())
+            name, statestr = text.strip().split(':')
+            state = statestr == '1'
 
-    def _change_callback(self, change_path):
-        resource = self.map_path(change_path)
-        key = (type(resource), resource.name)
-        handlers = self.change_events.get(key, tuple())
-        for handler in handlers:
-            handler(resource)
+            for n in [name, None]:
+                for s in [state, None]:
+                    for handler in self.trigger_events.get((n, s), []):
+                        loop.run_in_executor(None, handler, name, state)
 
-    def _trigger_callback(self, sock_line):
-        name, state = sock_line.split(':')
-        state = state == "1"
-        handlers = chain(
-            self.trigger_events.get((name, state), tuple()),
-            self.trigger_events.get((name, None), tuple()))
-        for handler in handlers:
-            handler(state)
+        # Inotify for changes
+        watcher = InotifyWatch(self.halfs_root)
 
-    def on_trigger(self, trig_name, trig_value=None):
+        def dispatch_changes():
+            changed_file = watcher.get()
+            resource = self.map_path(changed_file)
+            pattern = type(resource), resource.name
+
+            for handler in self.change_events.get(pattern, []):
+                loop.run_in_executor(None, handler, resource)
+
+        loop.add_reader(events_sock, dispatch_events)
+        loop.add_reader(watcher.fd, dispatch_changes)
+
+        loop.run_forever()
+
+    def on_trigger(self, match_name=None, match_state=None):
+        if match_state is not None:
+            match_state = bool(match_state)
+        pattern = (match_name, match_state)
+
+        installed = self.trigger_events.get(pattern, [])
+
         def wrapper(func):
-            k = (trig_name, trig_value)
-            handlers = self.trigger_events.get(k, tuple())
-
-            def inner(actual_value):
-                if trig_value is None or trig_value == actual_value:
-                    func(actual_value)
-            self.trigger_events[k] = handlers + (inner,)
-        return wrapper
-
-    def on_change(self, hal_type, name):
-        def wrapper(func):
-            k = (hal_type, name)
-            handlers = self.change_events.get(k, tuple())
-
-            def inner(resource):
-                func(resource)
-            self.change_events[k] = handlers + (inner,)
+            self.trigger_events[pattern] = installed + [func]
         return wrapper
