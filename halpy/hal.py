@@ -8,6 +8,10 @@ import asyncio
 
 
 class AttrDict(dict):
+    """
+    A javascript-like dictionary, st.
+    a_dict['a_key'] == a_dict.a_key
+    """
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
@@ -36,7 +40,7 @@ class Resource(object):
     def on_change(self, func):
         pattern = type(self), self.name
         installed = self.hal.change_events.get(pattern, [])
-        self.hal.change_events[pattern] = installed + [func]
+        self.hal.change_events[pattern] = installed + [asyncio.coroutine(func)]
 
 
 class Animation(Resource):
@@ -54,7 +58,7 @@ class Animation(Resource):
 
     @property
     def playing(self):
-        return self.read("play")
+        return self.read("play") == '1'
 
     @playing.setter
     def playing(self, value):
@@ -62,7 +66,7 @@ class Animation(Resource):
 
     @property
     def looping(self):
-        return self.read("loop")
+        return self.read("loop") == '1'
 
     @looping.setter
     def looping(self, value):
@@ -87,6 +91,9 @@ class Trigger(Resource):
     @property
     def is_active(self):
         return self.read().strip() == "1"
+
+    def on_trigger(self, value=None):
+        return self.hal.on_trigger(self.name, value)
 
 
 class Sensor(Resource):
@@ -135,14 +142,14 @@ class HAL(object):
         parts = [x.strip('/') for x in parts]
         return self.resource_mapping[parts[0]](self, parts[1])
 
-    def run(self):
-        loop = asyncio.get_event_loop()
-
+    def run(self, loop=None):
+        """Run HAL mainloop in given asyncio event loop"""
         # Socket for triggers
         events_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         events_sock.connect(path.join(self.halfs_root, "events"))
 
         def dispatch_events():
+            """Dispatch trigger events to user-defined handlers"""
             text = ''
             while not text.endswith('\n'):
                 text += events_sock.recv(1).decode()
@@ -153,31 +160,38 @@ class HAL(object):
             for n in [name, None]:
                 for s in [state, None]:
                     for handler in self.trigger_events.get((n, s), []):
-                        loop.run_in_executor(None, handler, name, state)
+                        r = handler(name, state)
+                        if asyncio.iscoroutine(r):
+                            asyncio.async(r)
 
         # Inotify for changes
         watcher = InotifyWatch(self.halfs_root)
 
         def dispatch_changes():
+            """Dispatch filesystem writes to user-defined handlers"""
             changed_file = watcher.get()
             resource = self.map_path(changed_file)
             pattern = type(resource), resource.name
 
             for handler in self.change_events.get(pattern, []):
-                loop.run_in_executor(None, handler, resource)
+                r = handler(resource)
+                if asyncio.iscoroutine(r):
+                    asyncio.async(r)
 
+        if loop is None:
+            loop = asyncio.get_event_loop()
         loop.add_reader(events_sock, dispatch_events)
         loop.add_reader(watcher.fd, dispatch_changes)
-
         loop.run_forever()
 
     def on_trigger(self, match_name=None, match_state=None):
+        """Register a handler for a trigger change"""
         if match_state is not None:
             match_state = bool(match_state)
         pattern = (match_name, match_state)
 
         installed = self.trigger_events.get(pattern, [])
 
-        def wrapper(func):
-            self.trigger_events[pattern] = installed + [func]
+        def wrapper(fun):
+            self.trigger_events[pattern] = installed + [asyncio.coroutine(fun)]
         return wrapper

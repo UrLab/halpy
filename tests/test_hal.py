@@ -25,10 +25,10 @@ def teardown_function(*args, **kwargs):
 def test_hal():
     hal = HAL(ROOT)
     assert hal.halfs_root == ROOT
-    assert hal.animations.keys() == ['test']
-    assert hal.switchs.keys() == ['test']
-    assert hal.triggers.keys() == ['test']
-    assert hal.sensors.keys() == ['test']
+    assert list(hal.animations.keys()) == ['test']
+    assert list(hal.switchs.keys()) == ['test']
+    assert list(hal.triggers.keys()) == ['test']
+    assert list(hal.sensors.keys()) == ['test']
 
 
 def test_map_full_path():
