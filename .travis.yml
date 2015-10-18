@@ -1,10 +1,12 @@
 language: python
+sudo: false
 before_install: pip install -r requirements.txt
 script:
   - py.test
   - "cd doc/ && make html"
 python:
   - "3.4"
+  - "3.5"
 notifications:
   irc:
     channels:
