@@ -72,6 +72,21 @@ class Animation(Resource):
     def looping(self, value):
         self.write(1 if value else 0, "loop")
 
+    def upload(self, frames):
+        # Format frames
+        intify = lambda x: x if isinstance(x, int) else int(255*x)
+        frames = [intify(x) for x in frames]
+
+        # Validation
+        if not (0 < len(frames) <= 255):
+            raise ValueError("Illegal animation len !")
+        for elem in frames:
+            if not (isinstance(elem, int) and 0 <= elem <= 255):
+                raise ValueError("Illegal value {}".format(elem))
+
+        # Upload !
+        self.write(bytes(frames), "frames")
+
 
 class Switch(Resource):
     hal_type = 'switchs'
