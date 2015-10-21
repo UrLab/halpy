@@ -85,7 +85,7 @@ class Animation(Resource):
                 raise ValueError("Illegal value {}".format(elem))
 
         # Upload !
-        self.write(bytes(frames), "frames")
+        self.write(''.join(map(chr, frames)), "frames")
 
 
 class Switch(Resource):
