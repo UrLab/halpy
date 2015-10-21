@@ -176,6 +176,7 @@ class HAL(object):
             for n in [name, None]:
                 for s in [state, None]:
                     for handler in self.trigger_events.get((n, s), []):
+                        print("CALL", handler.__name__)
                         r = handler(name, state)
                         if asyncio.iscoroutine(r):
                             asyncio.async(r)
@@ -190,6 +191,7 @@ class HAL(object):
             pattern = type(resource), resource.name
 
             for handler in self.change_events.get(pattern, []):
+                print("CALL", handler.__name__)
                 r = handler(resource)
                 if asyncio.iscoroutine(r):
                     asyncio.async(r)
