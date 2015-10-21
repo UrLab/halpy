@@ -41,6 +41,7 @@ class Resource(object):
         pattern = type(self), self.name
         installed = self.hal.change_events.get(pattern, [])
         self.hal.change_events[pattern] = installed + [asyncio.coroutine(func)]
+        return func
 
 
 class Animation(Resource):
@@ -104,7 +105,7 @@ class Trigger(Resource):
     hal_type = 'triggers'
 
     @property
-    def is_active(self):
+    def on(self):
         return self.read().strip() == "1"
 
     def on_trigger(self, value=None):
@@ -209,4 +210,5 @@ class HAL(object):
 
         def wrapper(fun):
             self.trigger_events[pattern] = installed + [asyncio.coroutine(fun)]
+            return fun
         return wrapper
