@@ -118,7 +118,7 @@ class Sensor(Resource):
 
     @property
     def value(self):
-        return float(self.read())
+        return float(self.read().strip())
 
 
 class HAL(object):
