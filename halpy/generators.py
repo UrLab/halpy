@@ -18,10 +18,10 @@ class Note(object):
         let a small silence at the end, to avoid legato effect.
         Example: Note(440, 1).to_frames(4) # => [44, 44, 44, 0]
         """
-        d = int(self.duration*bpm)
-        f = int(round(float(self.freq)/10))
+        d = int(self.duration * bpm)
+        f = int(round(float(self.freq) / 10))
         if d > 1:
-            return [f]*(d-1) + [0]
+            return [f] * (d - 1) + [0]
         return [f]
 
 
@@ -49,9 +49,9 @@ def sinusoid(n_frames=255, val_min=0, val_max=255):
     The returned string is suitable for upload()
     """
     if isinstance(val_min, float):
-        val_min = 255*val_min
+        val_min = 255 * val_min
     if isinstance(val_max, float):
-        val_max = 255*val_max
+        val_max = 255 * val_max
     assert val_min <= val_max
     for n in n_frames, val_min, val_max:
         assert 0 <= n < 256

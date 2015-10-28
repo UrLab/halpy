@@ -25,5 +25,5 @@ def test_sinusoid():
 
 
 def test_sinusoid_with_floats():
-    frames = sinusoid(n_frames=4, val_min=0.0, val_max=10.0/255.0)
+    frames = sinusoid(n_frames=4, val_min=0.0, val_max=10.0 / 255.0)
     assert frames == [5, 10, 5, 0]

@@ -76,7 +76,7 @@ class Animation(Resource):
 
     def upload(self, frames):
         # Format frames
-        intify = lambda x: x if isinstance(x, int) else int(255*x)
+        intify = lambda x: x if isinstance(x, int) else int(255 * x)
         frames = [intify(x) for x in frames]
 
         # Validation
