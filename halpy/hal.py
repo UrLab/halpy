@@ -6,6 +6,7 @@ from os import path, listdir
 from .simple_inotify import InotifyWatch
 import socket
 import asyncio
+import warnings
 
 
 class AttrDict(dict):
@@ -30,13 +31,13 @@ class Resource(object):
         self.hal = hal
         self.name = name
 
-    def read(self, *path):
+    def read(self, *path, **kwargs):
         full_path = (self.hal_type, self.name) + path
-        return self.hal.read(*full_path)
+        return self.hal.read(*full_path, **kwargs)
 
-    def write(self, value, *path):
+    def write(self, value, *path, **kwargs):
         full_path = (self.hal_type, self.name) + path
-        return self.hal.write(value, *full_path)
+        return self.hal.write(value, *full_path, **kwargs)
 
     def on_change(self, func):
         pattern = type(self), self.name
@@ -74,10 +75,15 @@ class Animation(Resource):
     def looping(self, value):
         self.write(1 if value else 0, "loop")
 
-    def upload(self, frames):
+    @property
+    def frames(self):
+        return list(self.read("frames", binary=True))
+
+    @frames.setter
+    def frames(self, value):
         # Format frames
         intify = lambda x: x if isinstance(x, int) else int(255 * x)
-        frames = [intify(x) for x in frames]
+        frames = [intify(x) for x in value]
 
         # Validation
         if not (0 < len(frames) <= 255):
@@ -87,7 +93,13 @@ class Animation(Resource):
                 raise ValueError("Illegal value {}".format(elem))
 
         # Upload !
-        self.write(''.join(map(chr, frames)), "frames")
+        self.write(bytes(frames), "frames", binary=True)
+
+    def upload(self, frames):
+        warnings.warn(
+            "Animation.upload is deprecated. Please use Animation.frames=",
+            DeprecationWarning)
+        self.frames = frames
 
 
 class Switch(Resource):
@@ -143,13 +155,15 @@ class HAL(object):
     def expand_path(self, *filepath):
         return path.join(self.halfs_root, *filepath)
 
-    def read(self, *filepath):
+    def read(self, *filepath, **opts):
         """Returns a string with the content of the file given in parameter"""
-        return open(self.expand_path(*filepath), 'r').read().strip()
+        mode = "rb" if opts.get('binary', False) else "r"
+        return open(self.expand_path(*filepath), mode).read().strip()
 
-    def write(self, value, *filepath):
+    def write(self, value, *filepath, **opts):
         """Casts value to str and writes it to the file given in parameter"""
-        open(self.expand_path(*filepath), 'w').write(str(value))
+        mode = "wb" if opts.get('binary', False) else "w"
+        open(self.expand_path(*filepath), mode).write(value)
 
     def map_path(self, filepath):
         """Return the resource associated to given filepath"""
