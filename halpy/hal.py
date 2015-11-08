@@ -229,3 +229,23 @@ class HAL(object):
             self.trigger_events[pattern] = installed + [asyncio.coroutine(fun)]
             return fun
         return wrapper
+
+    @property
+    def rx_bytes(self):
+        return int(self.read("driver", "rx_bytes"))
+
+    @property
+    def tx_bytes(self):
+        return int(self.read("driver", "tx_bytes"))
+
+    @property
+    def uptime(self):
+        return int(self.read("driver", "uptime"))
+
+    @property
+    def loglevel(self):
+        return int(self.read("driver", "loglevel"))
+
+    @loglevel.setter
+    def loglevel(self, lvl):
+        self.write("%d" % lvl, "driver", "loglevel")
