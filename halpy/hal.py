@@ -65,7 +65,7 @@ class Animation(Resource):
 
     @playing.setter
     def playing(self, value):
-        self.write(1 if value else 0, "play")
+        self.write("1" if value else "0", "play")
 
     @property
     def looping(self):
@@ -73,7 +73,7 @@ class Animation(Resource):
 
     @looping.setter
     def looping(self, value):
-        self.write(1 if value else 0, "loop")
+        self.write("1" if value else "0", "loop")
 
     @property
     def frames(self):
@@ -111,7 +111,7 @@ class Switch(Resource):
 
     @on.setter
     def on(self, value):
-        self.write(1 if value else 0)
+        self.write("1" if value else "0")
 
 
 class Trigger(Resource):
