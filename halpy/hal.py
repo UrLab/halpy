@@ -57,7 +57,7 @@ class Animation(Resource):
     def fps(self, value):
         value = int(value)
         assert 4 <= value <= 1024
-        return self.write(value, "fps")
+        return self.write("%d" % value, "fps")
 
     @property
     def playing(self):
