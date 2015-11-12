@@ -7,6 +7,9 @@ from .simple_inotify import InotifyWatch
 import socket
 import asyncio
 import warnings
+from logging import getLogger
+
+log = getLogger(__name__)
 
 
 class AttrDict(dict):
@@ -194,7 +197,7 @@ class HAL(object):
             for n in [name, None]:
                 for s in [state, None]:
                     for handler in self.trigger_events.get((n, s), []):
-                        print(datetime.now(), "CALL", handler.__name__)
+                        log.debug(datetime.now(), "CALL", handler.__name__)
                         r = handler(name, state)
                         if asyncio.iscoroutine(r):
                             asyncio.async(r)
@@ -211,7 +214,7 @@ class HAL(object):
             pattern = type(resource), resource.name
 
             for handler in self.change_events.get(pattern, []):
-                print(datetime.now(), "CALL", handler.__name__)
+                log.debug(datetime.now(), "CALL", handler.__name__)
                 r = handler(resource)
                 if asyncio.iscoroutine(r):
                     asyncio.async(r)
