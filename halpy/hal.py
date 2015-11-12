@@ -237,19 +237,19 @@ class HAL(object):
 
     @property
     def rx_bytes(self):
-        return int(self.read("driver", "rx_bytes"))
+        return int(self.read("driver", "rx_bytes").strip('\x00').strip('\n'))
 
     @property
     def tx_bytes(self):
-        return int(self.read("driver", "tx_bytes"))
+        return int(self.read("driver", "tx_bytes").strip('\x00').strip('\n'))
 
     @property
     def uptime(self):
-        return int(self.read("driver", "uptime"))
+        return int(self.read("driver", "uptime").strip('\x00').strip('\n'))
 
     @property
     def loglevel(self):
-        return int(self.read("driver", "loglevel"))
+        return int(self.read("driver", "loglevel").strip('\x00').strip('\n'))
 
     @loglevel.setter
     def loglevel(self, lvl):
