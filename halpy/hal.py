@@ -171,6 +171,9 @@ class HAL(object):
         while '/' in parts[0][1:]:
             parts = path.split(parts[0])
         parts = [x.strip('/') for x in parts]
+        # Currently no resource associated to driver
+        if parts[0] == 'driver':
+            return
         return self.resource_mapping[parts[0]](self, parts[1])
 
     def run(self, loop=None):
@@ -203,6 +206,8 @@ class HAL(object):
             """Dispatch filesystem writes to user-defined handlers"""
             changed_file = watcher.get()
             resource = self.map_path(changed_file)
+            if not resource:
+                return
             pattern = type(resource), resource.name
 
             for handler in self.change_events.get(pattern, []):
