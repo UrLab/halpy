@@ -179,7 +179,7 @@ class HAL(object):
             return
         return self.resource_mapping[parts[0]](self, parts[1])
 
-    def run(self, loop=None):
+    def install_loop(self, loop=None):
         """Run HAL mainloop in given asyncio event loop"""
         # Socket for triggers
         events_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -223,6 +223,10 @@ class HAL(object):
             loop = asyncio.get_event_loop()
         loop.add_reader(events_sock, dispatch_events)
         loop.add_reader(watcher.fd, dispatch_changes)
+        return loop
+
+    def run(self, loop=None):
+        loop = self.install_loop()
         loop.run_forever()
 
     def on_trigger(self, match_name=None, match_state=None):
