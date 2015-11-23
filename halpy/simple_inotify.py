@@ -31,7 +31,8 @@ class InotifyWatch(object):
                     C.c_char_p(bytes(full_path.encode())),
                     C.c_int(IN_CLOSE_WRITE))
                 if r < 0:
-                    raise SimpleINotifyError("Unable to follow " + full_path)
+                    raise SimpleINotifyError("Unable to follow %s: %d" % (
+                        full_path, r))
                 self.followed[r] = full_path
 
     def get(self):
