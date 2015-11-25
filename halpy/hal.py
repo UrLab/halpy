@@ -137,7 +137,7 @@ class Rgb(Resource):
 
     @color.setter
     def color(self, color):
-        intify = lambda x: int(x*255) if isinstance(x, float) else int(x)
+        intify = lambda x: int(x * 255) if isinstance(x, float) else int(x)
         r, g, b = [max(0, min(255, intify(c))) for c in color]
         self.css = '#%02x%02x%02x' % (r, g, b)
 
