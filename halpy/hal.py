@@ -117,6 +117,31 @@ class Switch(Resource):
         self.write("1" if value else "0")
 
 
+class Rgb(Resource):
+    hal_type = 'rgbs'
+
+    @property
+    def css(self):
+        return self.read().strip()
+
+    @css.setter
+    def css(self, color):
+        assert color[0] == '#' and (len(color) == 4 or len(color) == 7)
+        self.write(color)
+
+    @property
+    def color(self):
+        css = self.css
+        assert css[0] == '#'
+        return (int(css[1:3], 16), int(css[3:5], 16), int(css[5:7], 16))
+
+    @color.setter
+    def color(self, color):
+        intify = lambda x: int(x*255) if isinstance(x, float) else int(x)
+        r, g, b = [max(0, min(255, intify(c))) for c in color]
+        self.css = '#%02x%02x%02x' % (r, g, b)
+
+
 class Trigger(Resource):
     hal_type = 'triggers'
 
@@ -140,7 +165,7 @@ class HAL(object):
     """Main HAL class."""
 
     resource_mapping = {
-        c.hal_type: c for c in (Animation, Switch, Trigger, Sensor)}
+        c.hal_type: c for c in (Animation, Switch, Trigger, Sensor, Rgb)}
 
     def __init__(self, halfs_root):
         self.halfs_root = halfs_root
