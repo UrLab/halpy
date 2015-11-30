@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='halpy',
-    version='1.0',
+    version='1.1',
     description="halpy is a hi-level Python3 asyncio API for the HAL project. "
                 "HAL is an arduino-based human-hackerspace interface, meant "
                 "to be reusable and easy to use.",
