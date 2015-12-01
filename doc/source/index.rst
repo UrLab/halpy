@@ -32,15 +32,3 @@ Generators
 
 .. automodule:: halpy.generators
     :members:
-
-Simple inotify
-==============
-
-.. automodule:: halpy.simple_inotify
-    :members:
-
-Logging
-=======
-
-.. automodule:: halpy.log
-    :members:
