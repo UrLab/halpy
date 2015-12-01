@@ -114,7 +114,7 @@ class Animation(Resource):
         """
         Set the animation PWM values (at most 255), which are either integers
         in the range [0, 255] or floats in the range [0, 1]
-        
+
         :Example:
 
         >>> anim.frames = [255, 128, 0, 128]
