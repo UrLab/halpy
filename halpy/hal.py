@@ -221,11 +221,21 @@ class Sensor(Resource):
         return float(self.read().strip('\x00').strip())
 
 
+class DHTSensor(Resource):
+    """ DHT Sensor """
+    hal_type = 'sensors'
+
+    @property
+    def value(self):
+        """Return the actual input value (a float between 0 and 1)"""
+        return float(self.read().strip('\x00').strip())
+
+
 class HAL(object):
     """Main HAL class."""
 
     resource_mapping = {
-        c.hal_type: c for c in (Animation, Switch, Trigger, Sensor, Rgb)}
+        c.hal_type: c for c in (Animation, Switch, Trigger, Sensor, Rgb, DHTSensor)}
 
     def __init__(self, halfs_root):
         """Initialize a HAL object, given its Filesystem mountpoint"""
