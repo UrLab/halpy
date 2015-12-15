@@ -223,7 +223,7 @@ class Sensor(Resource):
 
 class DHTSensor(Resource):
     """ DHT Sensor """
-    hal_type = 'sensors'
+    hal_type = 'DHTsensors'
 
     @property
     def value(self):
