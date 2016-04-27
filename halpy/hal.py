@@ -249,12 +249,12 @@ class HAL(object):
     def read(self, *filepath, **opts):
         """Returns a string with the content of the file given in parameter"""
         mode = "rb" if opts.get('binary', False) else "r"
-        return FileIO.open(self.expand_path(*filepath), mode).read().strip()
+        return FileIO(self.expand_path(*filepath), mode).read().strip()
 
     def write(self, value, *filepath, **opts):
         """Casts value to str and writes it to the file given in parameter"""
         mode = "wb" if opts.get('binary', False) else "w"
-        FileIO.open(self.expand_path(*filepath), mode).write(value)
+        FileIO(self.expand_path(*filepath), mode).write(value)
 
     def map_path(self, filepath):
         """Return the resource associated to given filepath"""
